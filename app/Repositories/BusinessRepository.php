@@ -69,7 +69,10 @@ class BusinessRepository
 
         if ($request->filled('key_search')) {
             $keyword = trim($request->key_search);
-            $query->where('name', 'LIKE', '%' . $keyword . '%');
+            $query->where('name', 'LIKE', '%' . $keyword . '%')
+                ->orWhereHas('city', function ($q) use ($keyword) {
+                    $q->where('name', 'LIKE', '%' . $keyword . '%');
+                });
         }
 
         if ($request->filled('type')) {
@@ -105,10 +108,10 @@ class BusinessRepository
 
         if ($request->filled('star')) {
             $stars = $request->input('star');
-
             if (is_array($stars)) {
                 $query->havingRaw('ROUND(reviews_avg_star) IN (' . implode(',', array_map('intval', $stars)) . ')');
             }
+
         }
 
         if ($request->filled('sort_by')) {
@@ -150,9 +153,14 @@ class BusinessRepository
 //                    $priceQ->whereBetween('price', [$request->price_from, $request->price_to]);
 //                });
 //            }
-            if ($request->filled('booking_date') && $request->filled('booking_end_date')) {
+            if ($request->filled('booking_date')) {
                 $start = Carbon::parse($request->booking_date);
-                $end = Carbon::parse($request->booking_end_date);
+
+                if ($request->filled('booking_end_date')) {
+                    $end = Carbon::parse($request->booking_end_date);
+                } else {
+                    $end = $start->copy()->addHours(2);
+                }
 
                 if ($start->format('H:i:s') === '00:00:00' && $end->format('H:i:s') === '00:00:00') {
                     $start = $start->startOfDay();
@@ -178,6 +186,11 @@ class BusinessRepository
             ->with(['products.productPrice'])
             ->paginate($perPage, ['*'], 'page', $currentPage);
 
+    }
+
+    public function searchByName($name)
+    {
+        return Business::query()->where('name', 'LIKE', '%' . $name . '%')->get();
     }
 }
 

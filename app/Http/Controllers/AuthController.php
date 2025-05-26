@@ -57,9 +57,7 @@ class AuthController extends Controller
 
     public function refreshToken(Request $request)
     {
-
         $result =  $this->authService->refreshToken($request);
-
         return $this->success($result);
     }
 }

@@ -55,4 +55,14 @@ class BusinessService
         return ['error'=>'Không tìm thấy doanh nghiệp nào!'];
 
     }
+
+    public function searchByName(Request $request)
+    {
+        if($request->filled('name')){
+            $name = $request->name;
+            return $this->businessRepo->searchByName($name);
+        }
+
+        return ['error'=>'Không tìm thấy doanh nghiệp nào!'];
+    }
 }

@@ -11,6 +11,7 @@ Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
 Route::get('/search',[BusinessController::class,'search']);
 Route::get('/search-by-type',[BusinessController::class,'searchByType']);
+Route::get('/search-by-name',[BusinessController::class,'searchByName']);
 Route::get('/cities',[CityController::class,'getAll']);
 
 Route::get('/auth/redirect/google', [SocialAuthController::class, 'redirectToGoogle']);

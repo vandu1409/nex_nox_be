@@ -15,16 +15,17 @@ class BusinessController extends Controller
     {
         $this->businessService = $businessService;
     }
-
-
     public function search(Request $request)
     {
         return $this->success($this->businessService->search($request));
     }
-
     public function searchByType(Request $request)
     {
         return $this->success($this->businessService->searchByType($request));
+    }
+    public function searchByName(Request $request)
+    {
+        return $this->success($this->businessService->searchByName($request));
     }
 
 }
