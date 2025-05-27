@@ -58,27 +58,32 @@ class BusinessRepository
         return $query->get();
     }
 
-
     public function search(Request $request)
     {
         $query = Business::query();
 
+        // --- Lọc theo city_id ---
         if ($request->filled('city_id')) {
             $query->where('city_id', $request->city_id);
         }
 
+        // --- Tìm kiếm theo từ khóa ---
         if ($request->filled('key_search')) {
             $keyword = trim($request->key_search);
-            $query->where('name', 'LIKE', '%' . $keyword . '%')
-                ->orWhereHas('city', function ($q) use ($keyword) {
-                    $q->where('name', 'LIKE', '%' . $keyword . '%');
-                });
+            $query->where(function ($q) use ($keyword) {
+                $q->where('name', 'LIKE', '%' . $keyword . '%')
+                    ->orWhereHas('city', function ($q2) use ($keyword) {
+                        $q2->where('name', 'LIKE', '%' . $keyword . '%');
+                    });
+            });
         }
 
+        // --- Lọc theo loại (type) ---
         if ($request->filled('type')) {
             $query->where('dashboard_type', $request->type);
         }
 
+        // --- Lọc theo khoảng giá ---
         if ($request->filled('price_from') && $request->filled('price_to')) {
             $priceFrom = $request->input('price_from');
             $priceTo = $request->input('price_to');
@@ -89,15 +94,11 @@ class BusinessRepository
             });
         }
 
+        // --- Đánh giá trung bình (sao) ---
         $needAvgStar = false;
-
-        if ($request->filled('sort_by')) {
-            $sortBy = $request->input('sort_by');
-            if (in_array($sortBy, ['rating_asc', 'rating_desc'])) {
-                $needAvgStar = true;
-            }
+        if ($request->filled('sort_by') && in_array($request->sort_by, ['rating_asc', 'rating_desc'])) {
+            $needAvgStar = true;
         }
-
         if ($request->filled('star')) {
             $needAvgStar = true;
         }
@@ -111,12 +112,11 @@ class BusinessRepository
             if (is_array($stars)) {
                 $query->havingRaw('ROUND(reviews_avg_star) IN (' . implode(',', array_map('intval', $stars)) . ')');
             }
-
         }
 
+        // --- Sắp xếp ---
         if ($request->filled('sort_by')) {
-            $sortBy = $request->sort_by;
-            switch ($sortBy) {
+            switch ($request->sort_by) {
                 case 'rating_asc':
                     $query->orderBy('reviews_avg_star', 'asc');
                     break;
@@ -132,35 +132,23 @@ class BusinessRepository
             }
         }
 
+        // --- Lọc theo thuộc tính của Product + thời gian chưa bị booking ---
         $query->whereHas('products', function ($q) use ($request) {
-
             if ($request->filled('usage_quantity')) {
                 $q->where('usage_quantity', '>=', (int)$request->usage_quantity);
             }
-
             if ($request->filled('place_quantity')) {
                 $q->where('place_quantity', '>=', (int)$request->place_quantity);
             }
-
             if ($request->filled('children_quantity')) {
                 $q->where('child_quantity', '>=', (int)$request->children_quantity);
             }
 
-//            if ($request->filled('price_from') && $request->filled('price_to')) {
-//                $q->whereHas('productPrice', function ($priceQ) use ($request) {
-//                    Log::debug($request->price_from);
-//                    Log::debug($request->price_to);
-//                    $priceQ->whereBetween('price', [$request->price_from, $request->price_to]);
-//                });
-//            }
             if ($request->filled('booking_date')) {
                 $start = Carbon::parse($request->booking_date);
-
-                if ($request->filled('booking_end_date')) {
-                    $end = Carbon::parse($request->booking_end_date);
-                } else {
-                    $end = $start->copy()->addHours(2);
-                }
+                $end = $request->filled('booking_end_date')
+                    ? Carbon::parse($request->booking_end_date)
+                    : $start->copy()->addHours(2);
 
                 if ($start->format('H:i:s') === '00:00:00' && $end->format('H:i:s') === '00:00:00') {
                     $start = $start->startOfDay();
@@ -180,17 +168,36 @@ class BusinessRepository
             }
         });
 
+        // --- Lọc riêng theo room_quantity (số phòng chưa bị booking) ---
+        if ($request->filled('room_quantity') && $request->filled('booking_date')) {
+            $roomQuantity = (int)$request->room_quantity;
+            $start = Carbon::parse($request->booking_date);
+            $end = $request->filled('booking_end_date')
+                ? Carbon::parse($request->booking_end_date)
+                : $start->copy()->addHours(2);
+
+            if ($start->format('H:i:s') === '00:00:00' && $end->format('H:i:s') === '00:00:00') {
+                $start = $start->startOfDay();
+                $end = $end->endOfDay();
+            }
+
+            $query->availableRoomQuantity($roomQuantity, $start, $end);
+        }
+
+        // --- Phân trang ---
         $perPage = $request->input('perPage', 20);
         $currentPage = $request->input('currentPage', 1);
+
         return $query
             ->with(['products.productPrice'])
             ->paginate($perPage, ['*'], 'page', $currentPage);
-
     }
+
 
     public function searchByName($name)
     {
         return Business::query()->where('name', 'LIKE', '%' . $name . '%')->get();
     }
+
 }
 

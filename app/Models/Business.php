@@ -106,4 +106,20 @@ class Business extends Model
       });
     }
 
+    public function scopeAvailableRoomQuantity($query, $quantity, $start, $end)
+    {
+        return $query->whereHas('products', function ($q) use ($start, $end) {
+            $q->whereDoesntHave('bookings', function ($bookingQ) use ($start, $end) {
+                $bookingQ->where(function ($subQ) use ($start, $end) {
+                    $subQ->whereBetween('start_time', [$start, $end])
+                        ->orWhereBetween('end_time', [$start, $end])
+                        ->orWhere(function ($subQ2) use ($start, $end) {
+                            $subQ2->where('start_time', '<=', $start)
+                                ->where('end_time', '>=', $end);
+                        });
+                });
+            });
+        }, '>=', $quantity);
+    }
+
 }

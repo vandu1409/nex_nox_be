@@ -3,6 +3,7 @@
 namespace App\Services;
 use App\Repositories\BusinessRepository;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
 class BusinessService
@@ -42,7 +43,13 @@ class BusinessService
 
     public function search(Request $request)
     {
-        return $this->businessRepo->search($request);
+
+        $cacheKey = 'business-search_'.md5(json_encode($request->all()));
+        $cacheTTL = 600 ;
+
+        return Cache::remember($cacheKey, $cacheTTL, function () use ($request) {
+            return $this->businessRepo->search($request);
+        });
     }
 
     public function searchByType(Request $request)
